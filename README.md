@@ -1,5 +1,7 @@
 # Token 消耗看板
 
+<img src="promo/social-preview.png" alt="Token 消耗看板 —— 各 AI Agent 通用的本地用量分析工具" width="100%">
+
 给 AI Agent 用户的本机用量分析工具。扫描各家 Agent 的会话日志，统计 **Token 消耗、缓存命中率、费用估算**，输出一张单文件看板。
 
 **纯本地运行，不联网、不上传。** 日志只在本机被读取和计算，一个字节都不会离开你的电脑。

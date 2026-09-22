@@ -21,12 +21,13 @@ env/
 .DS_Store
 Thumbs.db
 
-# 临时开发文件
-_old_*
-_*
-!_.gitignore
-
 # 本地日志与截图
 *.log
 *.png
 !promo/*.png
+
+# 临时开发文件
+_old_*
+_*
+!_.gitignore
+!promo/_make_promo.py
