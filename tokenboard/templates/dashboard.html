@@ -1,0 +1,435 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light dark">
+<title>Token 消耗看板</title>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+:root{
+  --bg:#eef1f6;--card:#fff;--ink:#1d2129;--t2:#5c6470;--t3:#939aa6;
+  --line:#e4e8ef;--plum:#7a3b57;--coral:#ff6b81;
+  --track:#f0f2f6;--hover:#fafbfd;--zebra:#fbfcfd;
+  --shadow:0 1px 3px rgba(29,33,41,.06),0 8px 24px rgba(29,33,41,.05);
+  --shadow-hi:0 2px 6px rgba(29,33,41,.07),0 14px 34px rgba(29,33,41,.10);
+  --ring:rgba(122,59,87,.28);
+  --dur:.42s;--ease:cubic-bezier(.22,.68,.32,1);
+}
+
+/* ---------- 暗色模式：纯原生，零依赖 ---------- */
+@media (prefers-color-scheme:dark){
+  :root{
+    --bg:#14161a;--card:#1c1f25;--ink:#e8eaee;--t2:#a2aab8;--t3:#77808f;
+    --line:#2b3039;--plum:#e2a8c0;--coral:#ff8095;
+    --track:#2a2f38;--hover:#22262d;--zebra:#20242a;
+    --shadow:0 1px 3px rgba(0,0,0,.4),0 8px 24px rgba(0,0,0,.3);
+    --shadow-hi:0 2px 6px rgba(0,0,0,.45),0 14px 34px rgba(0,0,0,.4);
+    --ring:rgba(226,168,192,.35);
+  }
+  .snapshot-note{background:#2c2515;border-color:#4d4022;color:#e8c877}
+  .snapshot-note b{color:#f5d98f}
+  .snapshot-note code{background:#1c1f25;border-color:#4d4022}
+  .live-tag{background:#12281f;border-color:#1f4a37;color:#5cd6a0}
+  .live-tag::before{background:#3cc98d}
+  tbody tr:hover td:first-child{background:var(--hover)}
+}
+body{font-family:-apple-system,"Segoe UI","Microsoft YaHei",system-ui,sans-serif;
+  background:var(--bg);color:var(--ink);padding:32px 24px 64px;line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  transition:background .3s ease,color .3s ease}
+.wrap{max-width:1240px;margin:0 auto}
+header{display:flex;align-items:flex-end;justify-content:space-between;
+  flex-wrap:wrap;gap:12px;margin-bottom:24px}
+.hgroup{display:flex;align-items:center;gap:13px}
+.mark{width:40px;height:40px;flex:0 0 auto;border-radius:11px;
+  background:var(--plum);color:#fff;display:flex;align-items:center;
+  justify-content:center;box-shadow:0 4px 12px rgba(122,59,87,.22)}
+.mark svg{width:22px;height:22px;display:block}
+h1{font-size:26px;letter-spacing:-.3px}
+h1 span{color:var(--plum)}
+.sub{color:var(--t3);font-size:12px;margin-top:4px}
+.hright{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.badge{background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:5px 12px;font-size:11px;color:var(--t2)}
+.ghost{background:var(--card);border:1px solid var(--line);border-radius:999px;
+  padding:5px 11px;font-size:11px;color:var(--t2);cursor:pointer;
+  font-family:inherit;display:inline-flex;align-items:center;gap:5px;
+  transition:transform .18s var(--ease),border-color .2s,color .2s,box-shadow .2s}
+.ghost:hover{border-color:var(--plum);color:var(--plum);
+  box-shadow:0 2px 10px var(--ring)}
+.ghost:active{transform:scale(.95)}
+.ghost svg{width:13px;height:13px;display:block}
+.ghost svg.spin{animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){
+  .ghost svg.spin{animation:none}
+}
+
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(178px,1fr));
+  gap:14px;margin-bottom:22px}
+.kpi{background:var(--card);border:1px solid var(--line);border-radius:14px;
+  padding:16px 18px;box-shadow:var(--shadow);position:relative;overflow:hidden;
+  transition:transform .26s var(--ease),box-shadow .26s var(--ease)}
+.kpi::after{content:'';position:absolute;inset:0;border-radius:inherit;
+  background:radial-gradient(420px circle at var(--mx,50%) var(--my,0%),
+    var(--ring),transparent 62%);opacity:0;transition:opacity .3s ease;
+  pointer-events:none}
+@media (hover:hover){.kpi:hover{transform:translateY(-2px);box-shadow:var(--shadow-hi)}
+  .kpi:hover::after{opacity:.75}}
+.kv{font-size:23px;font-weight:650;letter-spacing:-.5px;
+  font-variant-numeric:tabular-nums}
+.kl{font-size:12px;color:var(--t2);margin-top:2px}
+.ks{font-size:11px;color:var(--t3);margin-top:6px}
+
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;
+  padding:20px 22px;box-shadow:var(--shadow);margin-bottom:20px;
+  transition:box-shadow .26s var(--ease)}
+@media (hover:hover){.card:hover{box-shadow:var(--shadow-hi)}}
+h2{font-size:15px;font-weight:650;margin-bottom:14px}
+h2 em{font-style:normal;color:var(--t3);font-weight:400;font-size:12px;margin-left:8px}
+table{width:100%;border-collapse:collapse;font-size:12.5px}
+th{text-align:right;font-weight:600;color:var(--t3);font-size:11px;
+  padding:8px 6px;border-bottom:1px solid var(--line);white-space:nowrap}
+th.l,td.l{text-align:left}
+td{padding:9px 6px;text-align:right;border-bottom:1px solid var(--line);
+  font-variant-numeric:tabular-nums}
+tbody tr:last-child td{border-bottom:0}
+tbody tr{transition:background .18s ease}
+tbody tr:hover{background:var(--hover)}
+.mono{font-family:ui-monospace,Consolas,monospace;font-size:11.5px}
+.path{font-family:ui-monospace,Consolas,monospace;font-size:11px;color:var(--t3);
+  max-width:280px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.bar{background:var(--track);border-radius:4px;height:7px;width:78px;
+  margin-left:auto;overflow:hidden}
+/* 宽度内联写死，默认即最终值；只有脚本开启 js-anim 后才从 0 生长 */
+.bar i{display:block;height:100%;
+  background:linear-gradient(90deg,var(--coral),var(--plum));border-radius:4px}
+html.js-anim .bar i{width:0;transition:width .9s var(--ease)}
+.chart{display:flex;align-items:flex-end;gap:6px;height:180px;padding-top:8px}
+.dc{flex:1;display:flex;flex-direction:column;align-items:center;height:100%;
+  justify-content:flex-end;min-width:0}
+.db{width:100%;max-width:42px;border-radius:5px 5px 0 0;display:flex;
+  align-items:flex-end;overflow:hidden;
+  background:linear-gradient(180deg,#b9c3d4,#8d99ad)}
+html.js-anim .db{height:0;transition:height .78s var(--ease)}
+.db i{display:block;width:100%;border-radius:5px 5px 0 0;
+  background:linear-gradient(180deg,var(--coral),#ffb3c0)}
+html.js-anim .db i{height:0;transition:height .9s var(--ease)}
+.dc span{font-size:10px;color:var(--t3);margin-top:6px;white-space:nowrap}
+.legend{display:flex;gap:16px;font-size:11px;color:var(--t3);margin-top:10px}
+.legend b{display:inline-block;width:9px;height:9px;border-radius:2px;margin-right:5px}
+.snapshot-note{background:#fff8e6;border:1px solid #f5dfa8;border-radius:12px;
+  padding:12px 16px;font-size:12px;color:#8a6100;margin-bottom:18px;line-height:1.7}
+.snapshot-note b{color:#6b4a00}
+.snapshot-note code{background:#fff;border:1px solid #f0dda8;border-radius:4px;
+  padding:1px 6px;font-family:ui-monospace,Consolas,monospace;font-size:11px}
+.live-tag{display:inline-flex;align-items:center;gap:5px;background:#e8f7f0;
+  border:1px solid #b8e6d2;color:#1a7a54;border-radius:999px;
+  padding:4px 11px;font-size:11px;font-weight:600}
+.live-tag::before{content:'';width:7px;height:7px;border-radius:50%;
+  background:#22a06b;animation:pulse 1.6s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;box-shadow:0 0 0 0 rgba(34,160,107,.45)}
+  50%{opacity:.45;box-shadow:0 0 0 4px rgba(34,160,107,0)}}
+.empty{color:var(--t3);font-size:12px;padding:20px 0}
+footer{color:var(--t3);font-size:11px;text-align:center;margin-top:28px;line-height:1.9}
+.sign{display:inline-block;margin-top:8px;font-size:12px;font-weight:600;
+  color:var(--plum);letter-spacing:.4px}
+.sign::before{content:'🩷 ';font-size:11px}
+
+/* ---------- 入场动画：错峰淡入，只跑一次 ----------
+   默认可见（无 JS / 脚本报错 / 截图抓取都不会白屏），
+   仅在脚本确认能播动画时才由 html.js-anim 开启隐藏态。 */
+.reveal{opacity:1;transform:none}
+html.js-anim .reveal{opacity:0;transform:translateY(9px);
+  transition:opacity .5s var(--ease),transform .5s var(--ease)}
+html.js-anim .reveal.on{opacity:1;transform:none}
+html.js-anim .reveal.d1{transition-delay:.05s}
+html.js-anim .reveal.d2{transition-delay:.11s}
+html.js-anim .reveal.d3{transition-delay:.17s}
+html.js-anim .reveal.d4{transition-delay:.23s}
+
+@media (prefers-reduced-motion:reduce){
+  html.js-anim .reveal{opacity:1 !important;transform:none !important;
+    transition:none !important}
+  .kv,.db,.db i,.bar i{transition:none !important}
+  .live-tag::before{animation:none}
+  .kpi:hover{transform:none}
+}
+
+/* 平板 / 窄屏 */
+@media (max-width:900px){
+  body{padding:20px 14px 48px}
+  h1{font-size:22px}
+  .grid{grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+  .kpi{padding:13px 14px}
+  .kv{font-size:19px}
+  .card{padding:16px 14px;border-radius:14px;overflow-x:auto;
+    -webkit-overflow-scrolling:touch}
+  table{font-size:12px;white-space:nowrap}
+  td,th{padding:8px 8px}
+  th:first-child,td:first-child{position:sticky;left:0;background:var(--card);
+    z-index:1}
+  tbody tr:hover td:first-child{background:var(--hover)}
+  .bar{width:56px}
+  .chart{height:150px;gap:4px}
+}
+
+/* 手机竖屏：表格转卡片 */
+@media (max-width:620px){
+  body{padding:16px 12px 40px}
+  header{margin-bottom:18px}
+  .mark{width:34px;height:34px;border-radius:9px}
+  .mark svg{width:19px;height:19px}
+  h1{font-size:20px}
+  .sub{font-size:11px}
+  .badge{font-size:10px;padding:4px 10px}
+  .ghost{font-size:10px;padding:4px 9px}
+  .grid{grid-template-columns:repeat(2,1fr);gap:9px;margin-bottom:16px}
+  .kv{font-size:17px}
+  .kl{font-size:11px}
+  .ks{font-size:10px;margin-top:4px}
+  .card{padding:15px 13px;border-radius:13px;margin-bottom:14px;overflow:visible}
+  h2{font-size:14px;display:flex;flex-direction:column;gap:2px}
+  h2 em{margin-left:0;font-size:11px}
+  table{display:block;width:100%}
+  thead{display:none}
+  tbody{display:block}
+  tbody tr{display:block;background:var(--zebra);border:1px solid var(--line);
+    border-radius:11px;padding:11px 13px;margin-bottom:9px}
+  tbody tr:hover{background:var(--zebra)}
+  td{display:flex;justify-content:space-between;align-items:center;gap:10px;
+    border:0;padding:4px 0;text-align:right;white-space:normal;
+    position:static !important;background:none !important}
+  td::before{content:attr(data-label);color:var(--t3);font-size:11px;
+    font-weight:500;text-align:left;flex:0 0 auto}
+  td.l{justify-content:flex-start;font-weight:650;font-size:13.5px}
+  td.l::before{content:none}
+  td.l:first-child{border-bottom:1px solid var(--line);padding-bottom:8px;
+    margin-bottom:6px;display:block;word-break:break-all}
+  .bar{width:auto;flex:1;max-width:120px;margin-left:0}
+  .chart{height:132px;gap:3px}
+  .dc span{font-size:9px;transform:rotate(-45deg);transform-origin:right center;
+    margin-top:12px}
+  footer{font-size:10px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div class="hgroup">
+    <div class="mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M3 20h18"/><path d="M6 20V11"/><path d="M11 20V4"/>
+        <path d="M16 20v-6"/><path d="M21 20V8"/>
+      </svg>
+    </div>
+    <div>
+      <h1>Token <span>消耗看板</span></h1>
+      <div class="sub">支持多 Agent 日志 · 本地运行，数据不出本机 __LIVE_TAG__</div>
+    </div>
+  </div>
+  <div class="hright">
+    <div class="badge" id="genBadge">数据时间 __GEN__</div>
+    <button class="ghost" id="reloadBtn" type="button" title="立即重新扫描">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+        stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M20 12a8 8 0 1 1-2.4-5.7"/><path d="M20 4v4h-4"/>
+      </svg>
+      <span>刷新</span>
+    </button>
+  </div>
+</header>
+
+<!--SNAPSHOT_START-->
+__SNAPSHOT__
+<!--SNAPSHOT_END-->
+
+<div class="grid">__KPIS__</div>
+
+<div class="card reveal d1">
+  <h2>来源对比<em>仅统计解析到用量数据的来源，按用量降序</em></h2>
+  <table>
+    <thead><tr><th class="l">来源</th><th class="l">日志目录</th><th>请求</th>
+    <th>输入</th><th>输出</th><th>缓存命中</th><th>会话</th><th>占比</th></tr></thead>
+    <tbody>__SRC_TABLE__</tbody>
+  </table>
+</div>
+
+<div class="card reveal d2">
+  <h2>模型用量分布<em>跨全部来源汇总</em></h2>
+  <table>
+    <thead><tr><th class="l">模型</th><th>请求</th><th>输入</th><th>输出</th>
+    <th>缓存命中</th><th>合计</th><th>占比</th><th>费用</th></tr></thead>
+    <tbody>__MODEL_TABLE__</tbody>
+  </table>
+</div>
+
+<div class="card reveal d3">
+  <h2>每日用量趋势<em>柱高=当日合计 Token</em></h2>
+  <div class="chart">__DAILY__</div>
+  <div class="legend">
+    <span><b style="background:linear-gradient(180deg,#b9c3d4,#8d99ad)"></b>合计 Token</span>
+    <span><b style="background:linear-gradient(180deg,var(--coral),#ffb3c0)"></b>其中缓存命中</span>
+  </div>
+</div>
+
+<div class="card reveal d4">
+  <h2>会话 Top 20<em>按合计 Token</em></h2>
+  <table>
+    <thead><tr><th class="l">会话</th><th class="l">模型</th><th class="l">来源</th>
+    <th>请求</th><th>输入</th><th>输出</th><th>合计</th></tr></thead>
+    <tbody>__SESS_TABLE__</tbody>
+  </table>
+</div>
+
+<footer>
+  __SOURCES__<br>
+  本页由本地脚本扫描会话日志生成，全程离线不上传。__SOURCE_NOTE__<br>
+  费用按公开单价折算，估算值约 ¥__COST__，仅供参考。<br>
+  <span class="sign">by MoYan</span>
+</footer>
+</div>
+
+<script>
+/* 零依赖原生增强：数字滚动 / 柱状生长 / 错峰入场 / 卡片光晕 / 手动刷新 */
+(function(){
+  var reduce = window.matchMedia &&
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  /* ---- 1. KPI 数字从 0 滚上去，保留千分位、万/亿 与小数 ----
+     结束时一定回写精确原值，动画只是过渡，不承担数值正确性。 */
+  function fmt(v, dec){
+    if (dec) return v.toFixed(dec);
+    return Math.round(v).toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+  }
+  function roll(el){
+    var raw = (el.textContent || '').trim();
+    var m = raw.match(/(-?[\d,]+(?:\.\d+)?)(.*)/);
+    if (!m) return;
+    var target = parseFloat(m[1].replace(/,/g, ''));
+    var suffix = m[2] || '';
+    var dec = (m[1].split('.')[1] || '').length;
+    /* 数值无法解析、为 0、或用户偏好减少动态效果：保持原样，不接管 */
+    if (!isFinite(target) || target === 0 || reduce) return;
+
+    var final = fmt(target, dec) + suffix;
+    var dur = 760, t0 = null;
+    el.textContent = fmt(0, dec) + suffix;
+    function step(now){
+      if (t0 === null) t0 = now;
+      var p = Math.min(1, (now - t0) / dur);
+      var e = 1 - Math.pow(1 - p, 3);
+      if (p < 1) {
+        el.textContent = fmt(target * e, dec) + suffix;
+        requestAnimationFrame(step);
+      } else {
+        el.textContent = final;
+      }
+    }
+    requestAnimationFrame(step);
+  }
+
+  /* ---- 2. 进度条 / 柱状图：从 0 生长到目标值 ----
+     目标值写在内联 style 里，由渲染器一次写死，这里只负责动画。 */
+  function readPct(el, prop){
+    var v = el.style[prop];
+    if (!v) {
+      var cs = window.getComputedStyle(el);
+      v = prop === 'width' ? cs.width : cs.height;
+    }
+    return v;
+  }
+  function grow(){
+    document.querySelectorAll('.bar > i').forEach(function(el, i){
+      var w = readPct(el, 'width');
+      el.style.width = '0%';
+      setTimeout(function(){ el.style.width = w; }, reduce ? 0 : 90 + i * 26);
+    });
+    document.querySelectorAll('.db').forEach(function(el, i){
+      var h = readPct(el, 'height');
+      el.style.height = '0%';
+      setTimeout(function(){ el.style.height = h; }, reduce ? 0 : 120 + i * 18);
+    });
+    document.querySelectorAll('.db > i').forEach(function(el, i){
+      var h = readPct(el, 'height');
+      el.style.height = '0%';
+      setTimeout(function(){ el.style.height = h; }, reduce ? 0 : 320 + i * 18);
+    });
+  }
+
+  /* ---- 3. 错峰入场 ---- */
+  function reveal(){
+    var els = document.querySelectorAll('.reveal');
+    if (reduce || !('IntersectionObserver' in window)) {
+      els.forEach(function(el){ el.classList.add('on'); });
+      return;
+    }
+    var io = new IntersectionObserver(function(entries){
+      entries.forEach(function(en){
+        if (en.isIntersecting) {
+          en.target.classList.add('on');
+          io.unobserve(en.target);
+        }
+      });
+    }, {rootMargin: '0px 0px -6% 0px', threshold: .04});
+    els.forEach(function(el){ io.observe(el); });
+    /* 兜底一：已在视口内的卡片直接显形，不等观察器回调。
+       首屏内容不该依赖异步回调才可见。 */
+    els.forEach(function(el){
+      var r = el.getBoundingClientRect();
+      if (r.top < window.innerHeight && r.bottom > 0) {
+        el.classList.add('on');
+        io.unobserve(el);
+      }
+    });
+    /* 兜底二：无论观察器是否正常工作，一段时间后全部显形。 */
+    setTimeout(function(){
+      els.forEach(function(el){ el.classList.add('on'); });
+    }, 600);
+  }
+
+  /* ---- 4. 卡片跟随指针的光晕 ---- */
+  function glow(){
+    if (reduce || !window.matchMedia ||
+        !window.matchMedia('(hover:hover)').matches) return;
+    document.querySelectorAll('.kpi').forEach(function(card){
+      card.addEventListener('pointermove', function(ev){
+        var r = card.getBoundingClientRect();
+        card.style.setProperty('--mx', ((ev.clientX - r.left) / r.width * 100) + '%');
+        card.style.setProperty('--my', ((ev.clientY - r.top) / r.height * 100) + '%');
+      });
+    });
+  }
+
+  /* ---- 5. 手动刷新：重新拉页面，按钮转一圈 ---- */
+  function refresh(){
+    var btn = document.getElementById('reloadBtn');
+    if (!btn) return;
+    btn.addEventListener('click', function(){
+      var svg = btn.querySelector('svg');
+      if (svg) svg.classList.add('spin');
+      btn.disabled = true;
+      location.reload();
+    });
+  }
+
+  function boot(){
+    document.querySelectorAll('.kv').forEach(roll);
+    grow(); reveal(); glow(); refresh();
+  }
+
+  /* 先加 js-anim 再跑动画：这样没有 JS、脚本报错、或直接抓静态文件时，
+     内容始终是可见的最终态，不会被动画初始值藏起来。 */
+  try {
+    document.documentElement.classList.add('js-anim');
+  } catch (e) {}
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', boot);
+  } else { boot(); }
+})();
+</script>
+</body>
+</html>

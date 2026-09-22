@@ -1,0 +1,54 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  test:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ['3.8', '3.10', '3.12']
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: 语法检查
+        run: python -m compileall -q tokenboard
+
+      - name: 导入检查
+        run: python -c "import tokenboard; from tokenboard.cli import main; print('import ok', tokenboard.__version__)"
+
+      - name: CLI 冒烟测试
+        run: |
+          python -m tokenboard --version
+          python -m tokenboard sources || true
+
+      - name: 扫描冒烟测试
+        run: python -m tokenboard scan -o smoke.html || true
+
+      - name: 模板存在性检查
+        run: python -c "import os; from tokenboard import renderer; assert os.path.isfile(renderer.TEMPLATE_PATH), renderer.TEMPLATE_PATH; print('template ok')"
+
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: 安装 flake8
+        run: pip install flake8
+      - name: 代码风格检查
+        run: flake8 tokenboard --max-line-length=100 --extend-ignore=E501,W503
+        continue-on-error: true

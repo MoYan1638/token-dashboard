@@ -1,0 +1,6 @@
+{
+  "price_overrides": {
+    "deepseek-v4.1-flash": [1, 4, 0.2],
+    "my-custom-model": [2, 8, 0.4]
+  }
+}
