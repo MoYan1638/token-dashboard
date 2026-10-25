@@ -205,6 +205,6 @@ tokenboard/
 
 ## 许可
 
-MIT License，详见 [LICENSE](LICENSE)。
+[CC BY-NC 4.0](LICENSE) — 个人学习、使用、修改、二次创作免费，需署名并附原仓库链接；**禁止商业用途（含倒卖、打包进付费产品/服务）**，商用授权请联系作者。
 
 by MoYan
